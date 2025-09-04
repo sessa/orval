@@ -45,9 +45,14 @@ export const getScalar = ({
       let isEnum = false;
 
       if (enumItems) {
-        value = enumItems
-          .map((enumItem: number | null) => `${enumItem}`)
-          .join(' | ');
+        // NEW: prefer x-enumNames if present (for numeric enums)
+        if ((item as any)['x-enumNames']) {
+          value = (item as any)['x-enumNames']
+            .map((name: string) => `'${escape(name)}'`)
+            .join(' | ');
+        } else {
+          value = enumItems.map((enumItem: number | null) => `${enumItem}`).join(' | ');
+        }
         isEnum = true;
       }
 
@@ -69,14 +74,12 @@ export const getScalar = ({
       };
     }
 
-    case 'boolean':
+    case 'boolean': {
       let value = 'boolean';
-
       const itemWithConst = item as SchemaWithConst;
       if (itemWithConst.const !== undefined) {
         value = itemWithConst.const;
       }
-
       return {
         value: value + nullable,
         type: 'boolean',
@@ -88,6 +91,7 @@ export const getScalar = ({
         example: item.example,
         examples: resolveExampleRefs(item.examples, context),
       };
+    }
 
     case 'array': {
       const { value, ...rest } = getArray({
@@ -106,13 +110,19 @@ export const getScalar = ({
       let isEnum = false;
 
       if (enumItems) {
-        value = `${enumItems
-          .map((enumItem: string | null) =>
-            isString(enumItem) ? `'${escape(enumItem)}'` : `${enumItem}`,
-          )
-          .filter(Boolean)
-          .join(` | `)}`;
-
+        // NEW: prefer x-enumNames if present (for numeric enums mapped to labels)
+        if ((item as any)['x-enumNames']) {
+          value = (item as any)['x-enumNames']
+            .map((name: string) => `'${escape(name)}'`)
+            .join(' | ');
+        } else {
+          value = enumItems
+            .map((enumItem: string | null) =>
+              isString(enumItem) ? `'${escape(enumItem)}'` : `${enumItem}`,
+            )
+            .filter(Boolean)
+            .join(` | `);
+        }
         isEnum = true;
       }
 
@@ -173,12 +183,20 @@ export const getScalar = ({
       }
 
       if (enumItems) {
-        const value = `${enumItems
-          .map((enumItem: unknown) =>
-            isString(enumItem) ? `'${escape(enumItem)}'` : `${enumItem}`,
-          )
-          .filter(Boolean)
-          .join(` | `)}`;
+        // NEW: prefer x-enumNames for object-like enums as well
+        const value = (item as any)['x-enumNames']
+          ? (item as any)['x-enumNames']
+              .map((enumItem: unknown) =>
+                isString(enumItem) ? `'${escape(enumItem)}'` : `${enumItem}`,
+              )
+              .filter(Boolean)
+              .join(` | `)
+          : enumItems
+              .map((enumItem: unknown) =>
+                isString(enumItem) ? `'${escape(enumItem)}'` : `${enumItem}`,
+              )
+              .filter(Boolean)
+              .join(` | `);
 
         return {
           value: value + nullable,
